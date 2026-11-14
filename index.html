@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sistema fuzzy: tempo de irrigação</title>
+  <meta name="description" content="Simulador de um sistema fuzzy Mamdani que recomenda o tempo de irrigação de um jardim a partir da umidade do solo e da temperatura.">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#simulacao">Pular para a simulação</a>
+  <header class="topbar">
+    <div class="mesh" aria-hidden="true"></div>
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="badge-top enter-up d0"><span class="dot"></span>Inteligência Artificial, UFPI 2026.2</span>
+        <h1><span class="enter-mask"><span>Quanto regar, decidido por lógica fuzzy.</span></span></h1>
+        <p class="enter-up d1">Um sistema Mamdani recomenda o tempo de irrigação a partir da umidade do solo e da temperatura. Acompanhe a fuzzificação, as regras, os recortes, a agregação e o centroide.</p>
+      </div>
+      <nav class="toplinks enter-up d2" aria-label="Links">
+        <a class="btn primary" href="#simulacao">Ver a simulação</a>
+        <a id="repo-link" class="btn" href="https://github.com/S0breira/SistemaFuzzy" target="_blank" rel="noopener" translate="no">Código no GitHub</a>
+        <a class="btn ghost" href="#testes">Testes de validação</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ============ Configuração ============ -->
+    <aside class="config" aria-label="Configuração">
+      <section class="panel">
+        <h2>Entradas</h2>
+        <div class="fields one">
+          <div class="field">
+            <label for="f-u">Umidade do solo U (%)</label>
+            <div class="dual">
+              <input id="f-u" name="umidade" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0 a 100…" aria-describedby="e-u h-u">
+              <input id="r-u" type="range" min="0" max="100" step="0.5" aria-label="Umidade do solo (controle deslizante)">
+            </div>
+            <small class="hint" id="h-u">de 0% a 100%; aceita vírgula ou ponto</small>
+            <small class="err" id="e-u" data-for="f-u"></small>
+          </div>
+          <div class="field">
+            <label for="f-t">Temperatura T (°C)</label>
+            <div class="dual">
+              <input id="f-t" name="temperatura" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="10 a 40…" aria-describedby="e-t h-t">
+              <input id="r-t" type="range" min="10" max="40" step="0.5" aria-label="Temperatura (controle deslizante)">
+            </div>
+            <small class="hint" id="h-t">de 10 °C a 40 °C</small>
+            <small class="err" id="e-t" data-for="f-t"></small>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Base de regras</h2>
+          <span class="muted">antecedentes fixos</span>
+        </div>
+        <ol class="rule-editor" id="rule-editor"></ol>
+        <small class="err" id="e-rules"></small>
+      </section>
+
+      <section class="panel">
+        <h2>Defuzzificação</h2>
+        <div class="field">
+          <label for="f-step">Passo Δz (min)</label>
+          <select id="f-step">
+            <option value="0.1">0,1 minuto (N = 300)</option>
+            <option value="0.05">0,05 minuto (N = 600)</option>
+            <option value="0.01">0,01 minuto (N = 3.000)</option>
+          </select>
+          <small class="hint">centroide por pontos médios: z(k) = (k + 0,5)·Δz</small>
+        </div>
+      </section>
+
+      <section class="panel controls">
+        <div class="btn-grid">
+          <button type="button" id="btn-calc" class="btn primary wide">Calcular</button>
+          <button type="button" id="btn-step" class="btn">Avançar etapa</button>
+          <button type="button" id="btn-reset" class="btn">Restaurar padrão</button>
+        </div>
+        <p id="run-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </aside>
+
+    <!-- ============ Inferência ============ -->
+    <main class="main" id="simulacao" tabindex="-1">
+      <section class="metrics" aria-label="Situação da inferência">
+        <div class="metric">
+          <span class="m-label">Etapa</span>
+          <span class="m-value" id="m-stage">0/5</span>
+          <span class="m-sub" id="m-stage-sub">nenhuma executada</span>
+        </div>
+        <div class="metric">
+          <span class="m-label">Regras ativadas</span>
+          <span class="m-value" id="m-rules">—</span>
+          <span class="m-sub" id="m-rules-sub"></span>
+        </div>
+        <div class="metric">
+          <span class="m-label">Passo Δz</span>
+          <span class="m-value" id="m-step">0,1</span>
+          <span class="m-sub" id="m-step-sub">N = 300 pontos médios</span>
+        </div>
+        <div class="metric accent">
+          <span class="m-label">Tempo recomendado</span>
+          <span class="m-value" id="m-z">—</span>
+          <span class="m-sub" id="m-z-sub"></span>
+        </div>
+      </section>
+
+      <ol class="stepper" id="stepper" aria-label="Etapas da inferência">
+        <li data-s="1"><span class="n">1</span>Fuzzificação</li>
+        <li data-s="2"><span class="n">2</span>Avaliação das regras</li>
+        <li data-s="3"><span class="n">3</span>Implicação</li>
+        <li data-s="4"><span class="n">4</span>Agregação</li>
+        <li data-s="5"><span class="n">5</span>Defuzzificação</li>
+      </ol>
+
+      <!-- Etapa 1 -->
+      <section class="panel stage-panel" data-stage="1" aria-labelledby="t1">
+        <div class="panel-head">
+          <h2 id="t1"><span class="eyebrow">Etapa 1</span> Fuzzificação</h2>
+          <span class="muted">graus de compatibilidade com os termos linguísticos</span>
+        </div>
+        <div class="two-col">
+          <figure class="chart-box">
+            <canvas id="c-u" role="img" aria-label="Conjuntos de umidade do solo: seco, intermediário e úmido"></canvas>
+            <figcaption class="legend" id="lg-u"></figcaption>
+            <table class="degrees" id="d-u"></table>
+          </figure>
+          <figure class="chart-box">
+            <canvas id="c-t" role="img" aria-label="Conjuntos de temperatura: baixa, média e alta"></canvas>
+            <figcaption class="legend" id="lg-t"></figcaption>
+            <table class="degrees" id="d-t"></table>
+          </figure>
+        </div>
+        <p class="note">Um grau de pertinência indica o quanto o valor é compatível com cada termo. Não é uma probabilidade, e os graus de uma variável não precisam somar 1.</p>
+      </section>
+
+      <!-- Etapas 2 e 3 -->
+      <section class="panel stage-panel" data-stage="2" aria-labelledby="t2">
+        <div class="panel-head">
+          <h2 id="t2"><span class="eyebrow">Etapas 2 e 3</span> Regras e implicação</h2>
+          <span class="muted">E = mínimo; implicação = recorte pelo mínimo</span>
+        </div>
+        <div class="table-scroll">
+          <table class="rules" id="rules-table">
+            <thead>
+              <tr>
+                <th scope="col">Regra</th>
+                <th scope="col">SE umidade</th>
+                <th scope="col">E temperatura</th>
+                <th scope="col">ENTÃO tempo</th>
+                <th scope="col">min(μU; μT)</th>
+                <th scope="col">h(r)</th>
+              </tr>
+            </thead>
+            <tbody id="rules-body"></tbody>
+          </table>
+        </div>
+        <p class="muted small">Clique numa regra para ver o consequente original e o recorte produzido pela implicação.</p>
+        <div class="rule-detail">
+          <figure class="chart-box">
+            <canvas id="c-rule" role="img" aria-label="Consequente da regra selecionada e seu recorte"></canvas>
+            <figcaption class="legend" id="lg-rule"></figcaption>
+          </figure>
+          <div class="rule-text" id="rule-text"></div>
+        </div>
+      </section>
+
+      <!-- Etapas 4 e 5 -->
+      <section class="panel stage-panel" data-stage="3" aria-labelledby="t4">
+        <div class="panel-head">
+          <h2 id="t4"><span class="eyebrow">Etapas 4 e 5</span> Agregação e centroide</h2>
+          <span class="muted">máximo entre os recortes; centroide numérico</span>
+        </div>
+        <figure class="chart-box big">
+          <canvas id="c-out" role="img" aria-label="Conjuntos de saída, área agregada e centroide"></canvas>
+          <figcaption class="legend" id="lg-out"></figcaption>
+        </figure>
+        <div class="result" id="result"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="log-title">
+        <div class="panel-head">
+          <h2 id="log-title">Registro das etapas</h2>
+          <span class="muted" id="log-sub"></span>
+        </div>
+        <div id="log" class="log"></div>
+      </section>
+
+      <section class="panel" id="testes" aria-labelledby="tests-title">
+        <div class="panel-head">
+          <h2 id="tests-title">Testes de validação</h2>
+          <button type="button" id="btn-tests" class="btn">Executar testes</button>
+        </div>
+        <p class="muted small">Seção 6 do enunciado. Usam as mesmas funções do simulador, independentemente do que estiver na tela.</p>
+        <div id="tests-out"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <p>Universidade Federal do Piauí, disciplina de Inteligência Artificial, 2026.2. Sem bibliotecas: a inferência Mamdani, os gráficos (canvas) e a interface foram escritos para este trabalho.</p>
+  </footer>
+
+  <script src="js/fuzzy.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
