@@ -1,15 +1,9 @@
-/*
- * Testes de validação da seção 6 do enunciado.
- * Usam as mesmas funções do simulador e servem à página (botão "Executar testes") e ao Node.
- */
-(function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./fuzzy.js'));
-  else root.Validation = factory(root.Fuzzy);
-})(typeof self !== 'undefined' ? self : this, function (F) {
-  'use strict';
+// Testes de validação
+const Validation = (function () {
+  const F = typeof Fuzzy !== 'undefined' ? Fuzzy : require('./fuzzy.js');
 
-  const TOL_MU = 1e-6;   // pertinências e ativações
-  const TOL_Z = 0.01;    // tempos de referência (minutos)
+  const TOL_MU = 1e-6;
+  const TOL_Z = 0.01;
   const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const f = F.fmt;
   const tupla = (obj) => `(${Object.values(obj).map((v) => f(v)).join('; ')})`;
@@ -23,7 +17,7 @@
     const tests = [];
     const add = (t) => tests.push(t);
 
-    /* ---------- 6.1 Pertinências e extremos ---------- */
+    // 6.1 Pertinências e extremos
     {
       const fu = F.fuzzificar(35, 30);
       add({
@@ -58,7 +52,7 @@
         pass: ok,
       });
 
-      // Varredura: nenhuma divisão por zero, nenhum NaN, todos os graus em [0, 1].
+      // Sem divisão por zero
       let total = 0, ruins = 0;
       for (const v of ['umidade', 'temperatura', 'tempo']) {
         const V = F.VARIAVEIS[v];
@@ -79,7 +73,7 @@
       });
     }
 
-    /* ---------- 6.2 Ativação de uma única regra ---------- */
+    // 6.2 Ativação de uma única regra
     {
       const casos = [
         { U: 20, T: 35, regra: 'R3', cons: 'longo', z: 25, aprox: true },
@@ -101,7 +95,7 @@
       }
     }
 
-    /* ---------- 6.3 Inferência completa com sobreposição ---------- */
+    // 6.3 Inferência completa com sobreposição
     {
       const r = F.inferir(cfg());
       const at = ativas(r);
@@ -139,7 +133,7 @@
       });
     }
 
-    /* ---------- 6.4 Simetria, alteração de regras e precisão ---------- */
+    // 6.4 Simetria, alteração de regras e precisão
     {
       const r = F.inferir(cfg({ temperatura: 20 }));
       const at = ativas(r);
@@ -184,7 +178,7 @@
       });
     }
 
-    /* ---------- 6.5 Validação da interface e determinismo ---------- */
+    // 6.5 Validação da interface e determinismo
     {
       const casos = [
         ['umidade', '-1'], ['umidade', '101'], ['temperatura', '9'], ['temperatura', '41'],
@@ -193,7 +187,7 @@
       ];
       const res = casos.map(([v, x]) => [v, x, F.validarEntrada(v, x)]);
       let bloqueiaInferir = true;
-      try { F.inferir(cfg({ umidade: 101 })); bloqueiaInferir = false; } catch (e) { /* esperado */ }
+      try { F.inferir(cfg({ umidade: 101 })); bloqueiaInferir = false; } catch (e) { }
       add({
         id: '6.5', title: 'Entradas inválidas bloqueiam o cálculo',
         input: 'U = −1, 101, vazio, “abc”, “NaN”, Infinity; T = 9, 41, espaços, “30 graus”, “Infinity”, NaN',
@@ -213,7 +207,7 @@
         pass: rv.every(([, x, r]) => r.ok && r.valor === Number(x.replace(',', '.'))),
       });
 
-      // Determinismo e equivalência entre "Calcular" e o avanço por etapas.
+      // Determinismo
       const c = cfg({ umidade: 42.7, temperatura: 27.3, passo: 0.05 });
       const a = F.inferir(c), b = F.inferir(c);
       const fz = F.fuzzificar(42.7, 27.3);
@@ -232,7 +226,7 @@
           JSON.stringify(a.fuzz) === JSON.stringify(fz),
       });
 
-      // Denominador zero: tratado sem retornar 0 nem NaN.
+      // Saída vazia
       const d = F.defuzzificar(() => 0, 0.1);
       add({
         id: '2.3', title: 'Saída agregada vazia',
@@ -247,16 +241,16 @@
   }
 
   function comparacaoPassos() {
-    const ref = F.inferir(cfg());
-    // Centroide contínuo exato da agregação do teste 6.3 (μ = z/15 até 7,5 e 0,5 depois):
-    // ∫z·μ dz = 9,375 + 210,9375 = 220,3125; ∫μ dz = 1,875 + 11,25 = 13,125; razão = 117,5/7.
+    // Centroide exato do teste 6.3
     const continuo = 117.5 / 7;
     const linhas = F.PASSOS.map((passo) => {
       const r = F.inferir(cfg({ passo }));
       return { passo, N: r.centroide.N, z: r.centroide.z, erro: Math.abs(r.centroide.z - continuo) };
     });
-    return { continuo, continuoNumerico: F.centroideContinuo(ref.muAgregada), linhas };
+    return { continuo, linhas };
   }
 
   return { runValidation, comparacaoPassos, TOL_MU, TOL_Z };
-});
+})();
+
+if (typeof module !== 'undefined') module.exports = Validation;

@@ -1,4 +1,4 @@
-// Executa os testes de validação no Node: node tests/run-tests.js
+// Testes no terminal
 const F = require('../js/fuzzy.js');
 const V = require('../js/validation.js');
 

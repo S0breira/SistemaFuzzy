@@ -1,11 +1,6 @@
-/*
- * Interface: campos, validação, etapas, gráficos (canvas), registro e testes.
- * Toda a matemática vem de js/fuzzy.js; este arquivo só apresenta o resultado.
- */
 (function () {
-  'use strict';
-  const F = window.Fuzzy;
-  const V = window.Validation;
+  const F = Fuzzy;
+  const V = Validation;
   const $ = (s, r = document) => r.querySelector(s);
   const f = F.fmt;
 
@@ -14,11 +9,9 @@
   const NOME_CONS = { curto: 'curto', medio: 'médio', longo: 'longo' };
   const corDe = (variavel, id) => COR_CONJ[F.VARIAVEIS[variavel].conjuntos.findIndex((c) => c.id === id)];
 
-  let resultado = null;   // saída de F.inferir para a configuração atual
-  let etapa = 0;          // 0 = nada exibido; 1..5 = etapas exibidas
-  let regraSel = 0;       // regra mostrada no detalhe da implicação
-
-  /* ======================= Configuração ======================= */
+  let resultado = null;
+  let etapa = 0;
+  let regraSel = 0;
 
   function lerConfig() {
     return {
@@ -50,7 +43,6 @@
     el.className = 'status' + (tipo ? ' ' + tipo : '');
   }
 
-  // Qualquer alteração apaga os resultados anteriores e reinicia a sequência de etapas.
   function aoAlterar() {
     const tinha = resultado !== null;
     resultado = null;
@@ -92,8 +84,6 @@
       li.querySelector('select').addEventListener('change', () => { marcarRegrasAlteradas(); aoAlterar(); });
     });
   }
-
-  /* ======================= Ações ======================= */
 
   function calcularResultado() {
     const v = validar();
@@ -137,8 +127,6 @@
     renderTudo();
   }
 
-  /* ======================= Gráficos (canvas) ======================= */
-
   const cor = (nome) => getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
   const alfa = (hex, a) => {
     const h = hex.replace('#', '');
@@ -158,9 +146,6 @@
     return { ctx, w, h };
   }
 
-  /*
-   * o = { variavel, curvas: [{ f, cor, largura, tracejado, preenchimento }], linhas: [{ x, cor, rotulo }], rotulos: bool }
-   */
   function plotar(canvas, o) {
     const V0 = F.VARIAVEIS[o.variavel];
     const { ctx, w, h } = prepararCanvas(canvas);
@@ -172,7 +157,6 @@
     const mono = cor('--mono') || 'monospace';
     const cMuted = cor('--muted'), cLine = cor('--line');
 
-    // Grade e eixo vertical (0 a 1)
     ctx.font = `11px ${mono}`;
     ctx.lineWidth = 1;
     ctx.textBaseline = 'middle';
@@ -183,7 +167,6 @@
       ctx.fillStyle = cMuted;
       ctx.fillText(f(y), pad.l - 8, Y(y));
     }
-    // Eixo horizontal
     const passo = V0.max - V0.min > 50 ? 10 : 5;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (let x = V0.min; x <= V0.max + 1e-9; x += passo) {
@@ -200,7 +183,6 @@
     ctx.fillText('grau de pertinência μ', 0, 0);
     ctx.restore();
 
-    // Amostragem: uniforme + pontos de quebra dos conjuntos, para cantos exatos
     const xs = [];
     const n = Math.max(300, Math.round(pw * 2));
     for (let i = 0; i <= n; i++) xs.push(V0.min + (V0.max - V0.min) * i / n);
@@ -225,7 +207,6 @@
     }
     ctx.setLineDash([]);
 
-    // Nomes dos conjuntos sobre o trecho de pertinência 1
     if (o.rotulos !== false) {
       ctx.textBaseline = 'bottom'; ctx.font = `500 12px ${cor('--font') || 'sans-serif'}`;
       V0.conjuntos.forEach((c, i) => {
@@ -238,7 +219,6 @@
       });
     }
 
-    // Linhas verticais (entrada ou centroide)
     for (const l of o.linhas || []) {
       const px = Math.round(X(l.x)) + 0.5;
       ctx.strokeStyle = l.cor; ctx.lineWidth = 2;
@@ -266,7 +246,6 @@
     }));
   }
 
-  /* ---------- Etapa 1: entradas ---------- */
   function renderEntrada(variavel, canvasId, legId, tabId) {
     const V0 = F.VARIAVEIS[variavel];
     const mostra = resultado && etapa >= 1;
@@ -286,7 +265,6 @@
     $(tabId).innerHTML = `<thead><tr><th scope="col">Conjunto</th><th scope="col">Grau</th></tr></thead><tbody>${linhas}</tbody>`;
   }
 
-  /* ---------- Etapas 2 e 3: regras ---------- */
   function renderRegras() {
     const tb = $('#rules-body');
     const mostra = resultado && etapa >= 2;
@@ -340,7 +318,6 @@
     $('#rule-text').innerHTML = html;
   }
 
-  /* ---------- Etapas 4 e 5: saída ---------- */
   function renderSaida() {
     const curvas = curvasConjuntos('tempo', 1.5).map((c) => Object.assign(c, { tracejado: true }));
     const leg = F.VARIAVEIS.tempo.conjuntos.map((c, i) => ({ cor: cor(COR_CONJ[i]), tracejado: true, texto: `${c.nome} (${c.pontos.map((p) => f(p)).join('; ')})` }));
@@ -388,7 +365,6 @@
       `</div>`;
   }
 
-  /* ---------- Registro ---------- */
   function renderRegistro() {
     const log = $('#log');
     if (!resultado || etapa === 0) {
@@ -450,7 +426,6 @@
     $('#log-sub').textContent = `U = ${f(U)}%; T = ${f(T)} °C; Δz = ${f(passo)}`;
   }
 
-  /* ---------- Métricas e etapas ---------- */
   function renderMetricas() {
     $('#m-stage').textContent = `${etapa}/5`;
     $('#m-stage-sub').textContent = NOME_ETAPA[etapa];
@@ -487,7 +462,6 @@
     renderRegistro();
   }
 
-  /* ======================= Testes ======================= */
   function executarTestes() {
     const tests = V.runValidation();
     const ok = tests.filter((t) => t.pass).length;
@@ -505,12 +479,11 @@
       `<p>Centroide contínuo exato: ${f(cmp.continuo, 6)} min. Quanto menor o passo, mais pontos médios e menor o erro da soma em relação à integral; os três passos exibem 16,79 min porque o erro já é menor que 0,0001 min com Δz = 0,1.</p>`;
   }
 
-  /* ======================= Inicialização ======================= */
-  function ligarCampo(numId, rangeId) {
+  function ligarCampo(variavel, numId, rangeId) {
     const num = $(numId), rng = $(rangeId);
     num.addEventListener('input', () => {
-      const v = F.lerNumero(num.value);
-      if (typeof v === 'number' && Number.isFinite(v) && v >= Number(rng.min) && v <= Number(rng.max)) rng.value = v;
+      const v = F.validarEntrada(variavel, num.value);
+      if (v.ok) rng.value = v.valor;
       aoAlterar();
     });
     rng.addEventListener('input', () => { num.value = f(Number(rng.value)); aoAlterar(); });
@@ -519,8 +492,8 @@
   function init() {
     montarEditorRegras();
     preencher(F.PADRAO);
-    ligarCampo('#f-u', '#r-u');
-    ligarCampo('#f-t', '#r-t');
+    ligarCampo('umidade', '#f-u', '#r-u');
+    ligarCampo('temperatura', '#f-t', '#r-t');
     $('#f-step').addEventListener('change', aoAlterar);
     $('#btn-calc').addEventListener('click', calcular);
     $('#btn-step').addEventListener('click', avancar);
